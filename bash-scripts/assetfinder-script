@@ -1,0 +1,34 @@
+#!/bin/bash
+
+url=$1
+
+
+if [ ! -d "$url" ]; then
+	mkdir $url
+fi
+
+if [ ! -d "$url/recon" ]; then
+	mkdir $url/recon
+fi
+echo "[+] Harvesting subdomains with assetfinder..."
+assetfinder $url >> $url/recon/assets.txt
+cat $url/recon/assets.txt | grep $1 >> $url/recon/unsorted-final.txt
+rm $url/recon/assets.txt
+
+#echo "[+] Harvesting  subdomains with amass..."
+#amass enum -d $url >>  $url/recon/final.txt
+cat $url/recon/unsorted-final.txt | sort | uniq >>  $url/recon/sorted-final-domains.txt
+
+echo "[+] Probbing URL's with httprobe..."
+
+cat $url/recon/sorted-final-domains.txt | httprobe | sed 's/https\?:\/\///' | sort -u >> $url/recon/alive.txt
+
+#Take screenshots with go witness
+echo "[+] Taking screenshots with gowitness..."
+if [ ! -d "$url/recon/screenshots"]; then
+	mkdir $url/recon/screenshots
+fi
+for domain in $(cat $url/recon/alive.txt); do
+	gowitness single https://$domain -P $url/recon/screenshots --delay 1 && gowitness single http://$domain -P $url/recon/screenshots
+done
+
